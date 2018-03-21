@@ -18,10 +18,7 @@
 import argparse
 from Bio import SeqIO
 from collections import defaultdict
-import sys
-import os
 import subprocess
-import fileinput
 
 
 class BlastRes():
@@ -47,36 +44,19 @@ class BlastRes():
         self.bitscore = bitscore
         
         
-def check_hit_position(BlastRes_obj, current_coverage, max_query_start = 1, max_subject_start = 9, max_diff = 0.10, blast_type = 'blastx'):
+def check_hit_position(BlastRes_obj, current_coverage, max_query_start = 1, max_subject_start = 9, max_diff = 0.1, blast_type = 'blastx'):
     """
     Checks if a hit stored in a BlastRes class object meets the hit criteria we give
     returns a boolean, False if the conditions are not met
-
     """
-    assert blast_type in ['blastn', 'blastx'], "Only blastn and blastx is supported."
     res = False
-<<<<<<< HEAD
-    
     if (int(BlastRes_obj.qstart) <= max_query_start and  int(BlastRes_obj.sstart) <= max_subject_start):
         if blast_type == 'blastn':
-            hit_diff = 1-(int(BlastRes_obj.length)/int(BlastRes_obj.qlen))
+            hit_diff = (int(BlastRes_obj.length)/int(BlastRes_obj.qlen))-1
         else:
-            hit_diff = 1-((int(BlastRes_obj.length)*3)/int(BlastRes_obj.qlen))
+            hit_diff = ((int(BlastRes_obj.length)*3)/int(BlastRes_obj.qlen))-1
         if (abs(hit_diff) < max_diff):
             res = True
-
-=======
-    if blast_type == 'blastn':
-        if (int(BlastRes_obj.qstart) <= max_query_start and  int(BlastRes_obj.sstart) <= max_subject_start):
-            hit_diff = 1-(int(BlastRes_obj.length)/int(BlastRes_obj.qlen))
-            if (abs(hit_diff) < max_diff):
-                res = True
-    if blast_type == 'blastx':
-        if (int(BlastRes_obj.qstart) <= max_query_start and  int(BlastRes_obj.sstart) <= max_subject_start):
-            hit_diff = 1-((int(BlastRes_obj.length)*3)/int(BlastRes_obj.qlen))
-            if (abs(hit_diff) < max_diff):
-                res = True
->>>>>>> parent of 9e4542c... Cleaned up. Made hit_diff more intuitive.
     return res
 
 
@@ -103,6 +83,10 @@ def main():
         max_subject_start = (args.max_subject_start)*3
     max_diff = args.max_diff
     name_seqs = args.descriptive_names
+
+    clean_blast = "cp " + blast_output + " blast_unsorted.out && sort -k1,1 -k12,12g -k3,3nr -k13,13nr -k6,6n " + " -o " + blast_output + blast_output
+    subprocess.call(clean_blast, shell=True, executable="/bin/bash")
+
     # read all sequences into the file
     record_dict = SeqIO.to_dict(SeqIO.parse(seq_handle, "fasta"))
 
@@ -125,45 +109,39 @@ def main():
             if len(v) >= 1:
                 for res in v:
                     if blast_type == 'blastn':
-                        hit_diff = 1-(int(res.length)/int(res.qlen))
-<<<<<<< HEAD
-                    else:
-                        hit_diff = 1-((int(res.length)*3)/int(res.qlen))
-                    if check_hit_position(res, coverage, max_query_start = max_query_start, max_subject_start = max_subject_start, max_diff = max_diff):
-                        percent_diff = hit_diff 
-                        annotation = res.sseqid + " Diff: " + str(round(percent_diff, 2))
-=======
+                        hit_diff = (int(res.length)/int(res.qlen))-1
                         if check_hit_position(res, coverage, max_query_start = max_query_start, max_subject_start = max_subject_start, max_diff = max_diff):
                             percent_diff = hit_diff 
-                            annotation = res.sseqid + " Diff: " + str(percent_diff)
+                            annotation = res.sseqid + " Diff: " + str(round(percent_diff, 2))
                     if blast_type == 'blastx':
-                        hit_diff = 1-((int(res.length)*3)/int(res.qlen))
+                        hit_diff = ((int(res.length)*3)/int(res.qlen))-1
                         if check_hit_position(res, coverage, max_query_start = max_query_start, max_subject_start = max_subject_start, max_diff = max_diff):
                             percent_diff = hit_diff
-                            annotation = res.sseqid + " Diff: " + str(percent_diff)
+                            annotation = res.sseqid + " Diff: " + str(round(percent_diff, 2))
 
->>>>>>> parent of 9e4542c... Cleaned up. Made hit_diff more intuitive.
             else:
                 print("No entries for " + record_dict[record].id + "!")
 
 
             record_dict[record].description = record_dict[record].id +" Annotation: "+ annotation
             SeqIO.write(record_dict[record], output_handle, "fasta")
+ 
+
     if name_seqs == True:
         make_copy = "cp " + output_file + " Annotations_Named.fa"
-        subprocess.call(make_copy, shell=True, executable="/bin/bash")
         get_ids = "grep 'gi' Annotations_Named.fa | cut -f2 -d'|' > gene_ids.tmp"
-        subprocess.call(get_ids, shell=True, executable="/bin/bash")
+        subprocess.call(make_copy, shell=True, executable="/bin/bash")
         get_names = "while read ids; do title=$(efetch -id $ids -db protein -format docsum | grep -o -P '(?<=<Title>).*(?=</Title>)'); echo " + "$ids" + "," + "$title " + "; done < gene_ids.tmp > GeneID_Names.out"
-        subprocess.call(get_names, shell=True, executable="/bin/bash")
         clean_names = "sed -i 's/ /_/g' GeneID_Names.out"
-        subprocess.call(clean_names, shell=True, executable="/bin/bash")
         rename_genes = 'gids=($(cut -d"," -f1 "./GeneID_Names.out")) && names=($(cut -d"," -f2 "./GeneID_Names.out")) && idx=${!gids[*]} && for x in ${idx[@]}; do sed -i "s/gi|${gids[$x]}.*/${names[$x]}/g" Annotations_Named.fa; done'
-        subprocess.call(rename_genes, shell=True, executable="/bin/bash")
-        cleanup = "rm gene_ids.tmp"
+        cleanup = "rm gene_ids.tmp"        
+        subprocess.call(get_ids, shell=True, executable="/bin/bash")
+        subprocess.call(get_names, shell=True, executable="/bin/bash")
+        subprocess.call(clean_names, shell=True, executable="/bin/bash")
+        subprocess.call(rename_genes, shell=True, executable="/bin/bash")        
         subprocess.call(cleanup, shell=True, executable="/bin/bash")
-        
-        
+       
+
 
 if __name__ == "__main__":
     main()
