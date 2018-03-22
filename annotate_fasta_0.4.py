@@ -52,6 +52,7 @@ def proportion(x):
     if x < 0.0 or x > 1.0:
         raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
     return x
+
         
 def check_hit_position(BlastRes_obj, current_hit_diff, new_hit_diff, max_query_start = 1, max_subject_start = 9, max_diff = 0.10, blast_type = 'blastx'):
     """
@@ -68,23 +69,25 @@ def check_hit_position(BlastRes_obj, current_hit_diff, new_hit_diff, max_query_s
         res = True
     return res
 
+
 def filter_hits(BlastRes_obj, top_evalue, top_pident, top_bitscore, top_mismatch):
     res = False
-    if (int(BlastRes_obj.evalue) < top_evalue):
+    if (    int(BlastRes_obj.evalue) < top_evalue):
         res = True
-    if (   int(BlastRes_obj.evalue) == top_evalue
+    if (    int(BlastRes_obj.evalue) == top_evalue
         and int(BlastRes_obj.pident) > top_pident):
         res = True
-    if (   int(BlastRes_obj.evalue) == top_evalue
+    if (    int(BlastRes_obj.evalue) == top_evalue
         and int(BlastRes_obj.pident) == top_pident
         and int(BlastRes_obj.bitscore) > top_bitscore):
         res = True
-    if (   int(BlastRes_obj.evalue) == top_evalue
+    if (    int(BlastRes_obj.evalue) == top_evalue
         and int(BlastRes_obj.pident) == top_pident
         and int(BlastRes_obj.bitscore) == top_bitscore
         and int(BlastRes_obj.mismatch) < top_mismatch):
         res = True
     return res
+
 
 def which(program):
     # used to check if we have a program installed
@@ -100,11 +103,10 @@ def which(program):
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
                 return exe_file
-
     return None
 
+
 def get_entrez(output_file):
-    assert which("efetch"), "efetch utility needs to be installed to translate accession numbers."
     make_copy = "cp " + output_file + " Annotations_Named.fa"
     subprocess.call(make_copy, shell=True, executable="/bin/bash")
     get_ids = "grep 'gi' Annotations_Named.fa | cut -f2 -d'|' > gene_ids.tmp"
@@ -146,7 +148,7 @@ def main():
         "--max_diff",
         type=proportion,
         default=0.10,
-        help="Maximum percent difference between query and subject given as a fraction. default: 0.10"
+        help="Maximum difference between query and subject given as a fraction. default: 0.10"
     )
     parser.add_argument(
         "-q",
@@ -168,20 +170,24 @@ def main():
         action="store_true",
         help="Use entrez names for translation of accession numbers"
     )
-    args = parser.parse_args()
-
-    seq_handle = args.input_fasta
-    blast_output = args.blast_output
-    blast_type = args.blast_type
-    output_file = args.output_file
+    args            = parser.parse_args()
+    seq_handle      = args.input_fasta
+    blast_output    = args.blast_output
+    blast_type      = args.blast_type
+    output_file     = args.output_file
     max_query_start = args.max_query_start
+    max_diff        = args.max_diff
+    name_seqs       = args.entrez_names
+
     if blast_type == 'blastn':
         max_subject_start = args.max_subject_start
     if blast_type == 'blastx':
         max_subject_start = (args.max_subject_start)*3
-    max_diff = args.max_diff
-    name_seqs = args.entrez_names
-    print(name_seqs)
+
+    if name_seqs == True:
+        assert which("efetch"), "efetch utility needs to be installed to translate accession numbers."
+
+
     # read all sequences into the file
     record_dict = SeqIO.to_dict(SeqIO.parse(seq_handle, "fasta"))
 
@@ -193,7 +199,6 @@ def main():
             blast_res = line.strip().split("\t")
             name = blast_res[0]
             blast_dict[name].append(BlastRes(*blast_res))
-
 
     with open(output_file, "w") as output_handle:
         for record in record_dict:
